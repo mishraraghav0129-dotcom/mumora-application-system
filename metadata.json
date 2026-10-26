@@ -1,0 +1,8 @@
+{
+  "name": "Mumora",
+  "description": "Mumora: Comprehensive maternal healthcare, pregnancy tracking, postpartum care, and pediatric monitoring. Healthy Moms ♥ Brighter Tomorrows.",
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}

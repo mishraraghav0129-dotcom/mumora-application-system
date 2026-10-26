@@ -1,0 +1,133 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <script>
+      // Suppress harmless Vite HMR WebSocket connection notices in Cloud Run / iframe environment
+      (function() {
+        const RealWebSocket = window.WebSocket;
+        if (RealWebSocket) {
+          function MockWebSocket(url, protocols) {
+            const urlStr = String(url || '');
+            if (!urlStr.includes('vite') && !urlStr.includes('ais-dev') && !urlStr.includes('/@vite') && !urlStr.includes('run.app')) {
+              try {
+                return new RealWebSocket(url, protocols);
+              } catch (_) {}
+            }
+
+            const listeners = {};
+            const self = this instanceof MockWebSocket ? this : Object.create(MockWebSocket.prototype);
+            self.readyState = 1; // OPEN
+            self.url = urlStr;
+            self.protocol = '';
+            self.extensions = '';
+            self.bufferedAmount = 0;
+            self.binaryType = 'blob';
+            self.send = function() {};
+            self.close = function() {};
+            self.addEventListener = function(event, handler) {
+              if (!listeners[event]) listeners[event] = [];
+              listeners[event].push(handler);
+              if (event === 'open') {
+                setTimeout(() => {
+                  try { handler.call(self, { type: 'open', target: self }); } catch (_) {}
+                }, 0);
+              }
+            };
+            self.removeEventListener = function(event, handler) {
+              if (listeners[event]) {
+                listeners[event] = listeners[event].filter(function(h) { return h !== handler; });
+              }
+            };
+            self.dispatchEvent = function() { return true; };
+
+            setTimeout(() => {
+              if (typeof self.onopen === 'function') {
+                try { self.onopen({ type: 'open', target: self }); } catch (_) {}
+              }
+            }, 0);
+
+            return self;
+          }
+
+          MockWebSocket.prototype = RealWebSocket.prototype;
+          MockWebSocket.CONNECTING = 0;
+          MockWebSocket.OPEN = 1;
+          MockWebSocket.CLOSING = 2;
+          MockWebSocket.CLOSED = 3;
+          window.WebSocket = MockWebSocket;
+        }
+
+        const origError = console.error;
+        console.error = function(...args) {
+          const isViteWs = args.some(arg => {
+            if (!arg) return false;
+            const str = typeof arg === 'string' ? arg : (arg.message || arg.stack || String(arg));
+            return str.includes('WebSocket closed without opened') ||
+                   (str.includes('[vite]') && (str.includes('connect failed') || str.includes('WebSocket') || str.includes('closed without opened'))) ||
+                   str.includes('failed to connect to websocket') ||
+                   str.includes('WebSocket connection to');
+          });
+          if (isViteWs) return;
+          origError.apply(console, args);
+        };
+
+        const origWarn = console.warn;
+        console.warn = function(...args) {
+          const isViteWs = args.some(arg => {
+            if (!arg) return false;
+            const str = typeof arg === 'string' ? arg : (arg.message || arg.stack || String(arg));
+            return str.includes('WebSocket closed without opened') ||
+                   (str.includes('[vite]') && (str.includes('connect failed') || str.includes('WebSocket')));
+          });
+          if (isViteWs) return;
+          origWarn.apply(console, args);
+        };
+
+        window.addEventListener('error', function(e) {
+          const msg = (e && (e.message || (e.error && (e.error.message || e.error.stack)))) || '';
+          if (typeof msg === 'string' && (msg.includes('WebSocket closed without opened') || msg.includes('[vite]'))) {
+            e.preventDefault();
+            e.stopImmediatePropagation();
+            return true;
+          }
+        }, true);
+
+        window.addEventListener('unhandledrejection', function(e) {
+          const reason = (e && (e.reason && (e.reason.message || e.reason.stack || String(e.reason)))) || '';
+          if (typeof reason === 'string' && (reason.includes('WebSocket closed without opened') || reason.includes('[vite]'))) {
+            e.preventDefault();
+            e.stopImmediatePropagation();
+            return true;
+          }
+        }, true);
+      })();
+    </script>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+    <meta name="theme-color" content="#7e22ce" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="Mumora" />
+    <link rel="icon" type="image/png" href="/pwa-192x192.png" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+    <title>Mumora — Healthy Moms ♥ Brighter Tomorrows</title>
+    <meta name="description" content="Mumora: Comprehensive maternal healthcare, pregnancy tracking, postpartum support, and pediatric baby growth monitoring with safety-first AI assistance. Healthy Moms ♥ Brighter Tomorrows." />
+    <meta property="og:title" content="Mumora — Healthy Moms ♥ Brighter Tomorrows" />
+    <meta property="og:description" content="Healthy Moms ♥ Brighter Tomorrows. Comprehensive maternal healthcare, pregnancy tracking, postpartum care, and pediatric baby growth monitoring." />
+    <meta property="og:image" content="/mumora-logo.png" />
+    <meta property="og:type" content="website" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="Mumora — Healthy Moms ♥ Brighter Tomorrows" />
+    <meta name="twitter:description" content="Healthy Moms ♥ Brighter Tomorrows. Maternal & child healthcare companion." />
+    <meta name="twitter:image" content="/mumora-logo.png" />
+    <!-- Google Fonts for Plus Jakarta Sans -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=Noto+Sans+Devanagari:wght@400;500;600;700&display=swap" rel="stylesheet">
+  </head>
+  <body class="bg-[#FAF7F2] text-slate-900 antialiased font-sans selection:bg-purple-200 selection:text-purple-900">
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>

@@ -1,0 +1,43 @@
+{
+  "expo": {
+    "name": "Mumora",
+    "slug": "mumora-health",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./public/pwa-512x512.png",
+    "userInterfaceStyle": "light",
+    "splash": {
+      "image": "./public/pwa-512x512.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#FAF7F2"
+    },
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.mumora.health",
+      "infoPlist": {
+        "NSCameraUsageDescription": "Mumora needs camera access to scan medical reports, ultrasound records, and prescriptions.",
+        "NSPhotoLibraryUsageDescription": "Mumora needs photo library access to upload laboratory results and pediatric documents.",
+        "UIBackgroundModes": ["remote-notification"]
+      }
+    },
+    "android": {
+      "adaptiveIcon": {
+        "foregroundImage": "./public/pwa-512x512.png",
+        "backgroundColor": "#FAF7F2"
+      },
+      "package": "com.mumora.health",
+      "permissions": [
+        "CAMERA",
+        "READ_EXTERNAL_STORAGE",
+        "WRITE_EXTERNAL_STORAGE",
+        "READ_MEDIA_IMAGES",
+        "POST_NOTIFICATIONS",
+        "INTERNET",
+        "ACCESS_NETWORK_STATE"
+      ]
+    },
+    "web": {
+      "favicon": "./public/favicon.png"
+    }
+  }
+}
