@@ -5,7 +5,23 @@ Mumora is a full-stack maternal healthcare and pediatric development platform. I
 
 ---
 
-## 🚀 Quick Start Instructions
+## 🐳 Run with Docker (any OS)
+
+Install [Docker Desktop](https://www.docker.com/products/docker-desktop/) (Windows / macOS) or Docker Engine (Linux), then from the project folder run:
+
+```bash
+docker compose up --build
+```
+
+Open http://localhost:3000. This installs dependencies, builds the app, and starts it together with a local MongoDB container (data persists in a Docker volume).
+
+- Optional: create a `.env` file (copy `.env.example`) to set `GEMINI_API_KEY`, or `MONGODB_URI` to use a different database.
+- Stop: `Ctrl+C`, or `docker compose down` (add `-v` to also wipe the local database).
+- After pulling new code, run `docker compose up --build` again.
+
+---
+
+## 🚀 Quick Start Instructions (without Docker)
 
 ### Prerequisites
 - **Node.js**: v18.0.0 or higher
