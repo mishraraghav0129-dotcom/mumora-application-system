@@ -1,32 +1,39 @@
 import { MongoClient, Db } from 'mongodb';
 
-let activeMongoUri = (() => {
+// Local MongoDB (e.g. the one MongoDB Compass connects to) unless MONGODB_URI is set in .env
+const DEFAULT_LOCAL_URI = 'mongodb://localhost:27017/mumora_db';
+
+const MONGODB_URI = (() => {
   const envUri = (process.env.MONGODB_URI || '').trim();
   if (envUri.startsWith('mongodb://') || envUri.startsWith('mongodb+srv://')) {
     return envUri;
   }
-  // Linked user database credentials: mishra.raghav0129_db_user / mishraraghav0129_db-user
-  return 'mongodb+srv://mishra.raghav0129_db_user:Abhishek@cluster0.bnvanfy.mongodb.net/mumora_db?retryWrites=true&w=majority';
+  if (envUri) {
+    console.warn('[MongoDB] MONGODB_URI must start with mongodb:// or mongodb+srv:// — using local MongoDB instead');
+  }
+  return DEFAULT_LOCAL_URI;
 })();
 
-export function getMongoUri(): string {
-  return activeMongoUri;
-}
+// Database name comes from the URI path (".../mumora_db?..."), falling back to mumora_db
+export const DB_NAME = (() => {
+  const match = MONGODB_URI.match(/^mongodb(?:\+srv)?:\/\/[^/]+\/([^?]+)/);
+  return match?.[1] || 'mumora_db';
+})();
 
-export function setMongoUri(uri: string): void {
-  if (uri && (uri.startsWith('mongodb://') || uri.startsWith('mongodb+srv://'))) {
-    activeMongoUri = uri.trim();
-  }
-}
+// Host part of the URI with credentials stripped, safe to log and show in the admin panel
+const MONGODB_HOST = MONGODB_URI.replace(/^mongodb(?:\+srv)?:\/\//, '').split('/')[0].split('@').pop() || '';
 
-export const MONGODB_URI = activeMongoUri;
+const IS_ATLAS = MONGODB_URI.startsWith('mongodb+srv://') || MONGODB_HOST.includes('mongodb.net');
 
-export const DB_NAME = 'mumora_db';
+// Full URI with the password masked
+const REDACTED_URI = MONGODB_URI.replace(/\/\/([^:@/]+):[^@/]+@/, '//$1:••••••••@');
 
 export interface DatabaseStatus {
   connected: boolean;
   cluster: string;
   database: string;
+  isAtlas: boolean;
+  redactedUri: string;
   error?: string;
   lastChecked: string;
   outboundIp: string;
@@ -46,10 +53,11 @@ let db: Db | null = null;
 let isConnecting = false;
 let lastError: string | null = null;
 // Outbound IP for MongoDB Atlas whitelist
-let cachedOutboundIp = '34.34.226.215';
+let cachedOutboundIp = '';
 
 // Dynamic outbound IP detection with fast abort
 async function refreshOutboundIp() {
+  if (!IS_ATLAS) return;
   try {
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 2500);
@@ -95,66 +103,50 @@ export async function connectToMongoDB(): Promise<boolean> {
   if (isConnecting) return false;
   isConnecting = true;
 
-  const candidateUris = Array.from(new Set([
-    getMongoUri(),
-    'mongodb+srv://mishra.raghav0129_db_user:Abhishek@cluster0.bnvanfy.mongodb.net/mumora_db?retryWrites=true&w=majority',
-    'mongodb+srv://mishraraghav0129_db-user:Abhishek@cluster0.bnvanfy.mongodb.net/mumora_db?retryWrites=true&w=majority',
-    'mongodb+srv://rajt35293_db_user:Abhishek@cluster0.bnvanfy.mongodb.net/mumora_db?retryWrites=true&w=majority',
-  ]));
-
   let candidateClient: MongoClient | null = null;
-  let connectionSuccess = false;
+  try {
+    candidateClient = new MongoClient(MONGODB_URI, {
+      family: 4, // IPv4 resolution
+      serverSelectionTimeoutMS: 3000,
+      connectTimeoutMS: 3000,
+    });
 
-  for (const uri of candidateUris) {
-    try {
-      candidateClient = new MongoClient(uri, {
-        family: 4, // IPv4 resolution
-        serverSelectionTimeoutMS: 3000,
-        connectTimeoutMS: 3000,
-      });
+    await candidateClient.connect();
+    client = candidateClient;
+    db = client.db(DB_NAME);
+    lastError = null;
+    console.log(`[MongoDB] Connected to ${IS_ATLAS ? 'Atlas' : 'MongoDB'} at ${MONGODB_HOST} (database: ${DB_NAME})`);
 
-      await candidateClient.connect();
-      client = candidateClient;
-      db = client.db(DB_NAME);
-      activeMongoUri = uri;
-      lastError = null;
-      console.log(`[MongoDB] Connected successfully to Atlas cluster (${uri.split('@')[1]?.split('?')[0] || DB_NAME})`);
+    // Create required indexes in background
+    ensureIndexes().catch(() => {});
 
-      // Create required indexes in background
-      ensureIndexes().catch(() => {});
-
-      connectionSuccess = true;
-      break;
-    } catch (err: any) {
-      if (candidateClient) {
-        await candidateClient.close().catch(() => {});
-      }
-      client = null;
-      db = null;
-      lastError = String(err?.message || err || '').trim();
-    }
-  }
-
-  if (connectionSuccess) {
     isConnecting = false;
     return true;
-  }
+  } catch (err: any) {
+    if (candidateClient) {
+      await candidateClient.close().catch(() => {});
+    }
+    client = null;
+    db = null;
 
-  const rawMessage = String(lastError || '').trim();
-  if (
-    rawMessage.includes('SSL alert number 80') ||
-    rawMessage.includes('0A000438') ||
-    rawMessage.includes('tlsv1 alert') ||
-    rawMessage.includes('MongoServerSelectionError')
-  ) {
-    lastError = `Atlas cluster network access authorization pending. Add ${cachedOutboundIp} or 0.0.0.0/0 in MongoDB Atlas Network Access. Operating securely in resilient local storage mode.`;
-  } else {
-    lastError = rawMessage || 'Connection standby';
-  }
+    const rawMessage = String(err?.message || err || '').trim();
+    if (!IS_ATLAS) {
+      lastError = `Cannot reach MongoDB at ${MONGODB_HOST}. Is MongoDB running locally? (${rawMessage})`;
+    } else if (
+      rawMessage.includes('SSL alert number 80') ||
+      rawMessage.includes('0A000438') ||
+      rawMessage.includes('tlsv1 alert') ||
+      rawMessage.includes('MongoServerSelectionError')
+    ) {
+      lastError = `Atlas cluster network access authorization pending. Add ${cachedOutboundIp || 'this server\'s IP'} or 0.0.0.0/0 in MongoDB Atlas Network Access. Operating in local fallback mode.`;
+    } else {
+      lastError = rawMessage || 'Connection standby';
+    }
 
-  console.log(`[MongoDB Status] ${lastError}`);
-  isConnecting = false;
-  return false;
+    console.log(`[MongoDB Status] ${lastError}`);
+    isConnecting = false;
+    return false;
+  }
 }
 
 async function ensureIndexes() {
@@ -219,13 +211,15 @@ export async function getDbStatus(): Promise<DatabaseStatus> {
 
   return {
     connected: isConnected,
-    cluster: 'cluster0.bnvanfy.mongodb.net',
+    cluster: MONGODB_HOST,
     database: DB_NAME,
+    isAtlas: IS_ATLAS,
+    redactedUri: REDACTED_URI,
     error: lastError || undefined,
     lastChecked: new Date().toISOString(),
     outboundIp: cachedOutboundIp,
     whitelistInstruction:
-      !isConnected
+      !isConnected && IS_ATLAS
         ? `To allow this app to read and write directly to your MongoDB Atlas cluster: Open MongoDB Atlas → Security → Network Access → Click 'Add IP Address' → Select 'Allow Access from Anywhere' (0.0.0.0/0) or add IP: ${cachedOutboundIp}`
         : undefined,
     stats,
