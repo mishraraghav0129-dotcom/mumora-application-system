@@ -1,0 +1,11 @@
+node_modules
+dist
+.git
+.env*
+!.env.example
+android
+ios
+*.zip
+**/*.zip
+*.log
+bun.lock

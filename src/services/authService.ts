@@ -353,6 +353,8 @@ export interface MongoDbStatusResult {
   connected: boolean;
   cluster: string;
   database: string;
+  isAtlas: boolean;
+  redactedUri: string;
   error?: string;
   lastChecked: string;
   outboundIp: string;
@@ -378,10 +380,12 @@ export const fetchDatabaseStatus = async (): Promise<MongoDbStatusResult> => {
   }
   return {
     connected: false,
-    cluster: 'cluster0.bnvanfy.mongodb.net',
+    cluster: 'unknown',
     database: 'mumora_db',
+    isAtlas: false,
+    redactedUri: '',
     lastChecked: new Date().toISOString(),
-    outboundIp: '34.34.226.215',
+    outboundIp: '',
     error: 'Failed to communicate with local API proxy',
   };
 };

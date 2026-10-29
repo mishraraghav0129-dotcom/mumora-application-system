@@ -5,11 +5,29 @@ Mumora is a full-stack maternal healthcare and pediatric development platform. I
 
 ---
 
-## 🚀 Quick Start Instructions
+## 🐳 Run with Docker (any OS)
+
+Install [Docker Desktop](https://www.docker.com/products/docker-desktop/) (Windows / macOS) or Docker Engine (Linux), then from the project folder run:
+
+```bash
+docker compose up --build
+```
+
+Open http://localhost:3000. This installs dependencies, builds the app, and starts it together with a local MongoDB container (data persists in a Docker volume).
+
+- Optional: create a `.env` file (copy `.env.example`) to set `GEMINI_API_KEY`, or `MONGODB_URI` to use a different database.
+- Browse the database with MongoDB Compass at `mongodb://localhost:27017` (set `MONGO_PORT` in `.env` if 27017 is already taken by a locally installed MongoDB).
+- Stop: `Ctrl+C`, or `docker compose down` (add `-v` to also wipe the local database).
+- After pulling new code, run `docker compose up --build` again.
+
+---
+
+## 🚀 Quick Start Instructions (without Docker)
 
 ### Prerequisites
-- **Node.js**: v18.0.0 or higher
-- **npm**: v9.0.0 or higher
+- **Node.js**: v22 or higher
+- **npm**: v10 or higher
+- **MongoDB** running locally on port 27017 ([MongoDB Community Server](https://www.mongodb.com/try/download/community)); view it with [MongoDB Compass](https://www.mongodb.com/products/compass)
 
 ### 1. Installation
 Unzip the project files into a folder, open your terminal inside the folder, and run:
@@ -25,10 +43,10 @@ cp .env.example .env
 Key configuration parameters:
 - `PORT=3000`
 - `NODE_ENV=development`
-- `MONGODB_URI=mongodb+srv://rajt35293_db_user:Abhishek@cluster0.bnvanfy.mongodb.net/mumora_db?retryWrites=true&w=majority`
+- `MONGODB_URI=` — leave empty to use local MongoDB (`mongodb://localhost:27017/mumora_db`, the same URI you open in Compass). Set it to your Atlas connection string for the online database.
 - `GEMINI_API_KEY=` (optional, for Gemini AI report assistance)
 
-> **MongoDB Atlas Note**: Ensure your MongoDB Atlas cluster has allowed network access for your local IP (or `0.0.0.0/0` under **Security → Network Access**). If MongoDB is temporarily unreachable, Mumora automatically operates with local fallback storage so you can test all features seamlessly.
+> **MongoDB Atlas Note**: Never commit the Atlas connection string — keep it only in `.env`. Ensure your Atlas cluster allows network access for your IP (**Security → Network Access**).
 
 ### 3. Running the Development Server
 ```bash

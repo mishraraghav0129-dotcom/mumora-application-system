@@ -386,7 +386,7 @@ export const AdminPanel: React.FC = () => {
                 </div>
                 <div>
                   <h3 className="font-extrabold text-lg text-slate-900 flex items-center gap-2">
-                    <span>MongoDB Atlas Cloud Database</span>
+                    <span>{dbStatus?.isAtlas ? 'MongoDB Atlas Cloud Database' : 'Local MongoDB Database'}</span>
                     <span
                       className={`text-[10px] font-extrabold px-2.5 py-0.5 rounded-full border ${
                         dbStatus?.connected
@@ -394,11 +394,15 @@ export const AdminPanel: React.FC = () => {
                           : 'bg-amber-50 text-amber-800 border-amber-300'
                       }`}
                     >
-                      {dbStatus?.connected ? '✓ Online & Syncing' : '⚠ Network Whitelist Required'}
+                      {dbStatus?.connected
+                        ? '✓ Online & Syncing'
+                        : dbStatus?.isAtlas
+                          ? '⚠ Network Whitelist Required'
+                          : '⚠ Not Connected'}
                     </span>
                   </h3>
                   <p className="text-xs text-slate-500">
-                    Cluster: <code className="font-mono text-slate-800">cluster0.bnvanfy.mongodb.net</code> · Database: <code className="font-mono font-bold text-emerald-700">mumora_db</code>
+                    Host: <code className="font-mono text-slate-800">{dbStatus?.cluster || '—'}</code> · Database: <code className="font-mono font-bold text-emerald-700">{dbStatus?.database || 'mumora_db'}</code>
                   </p>
                 </div>
               </div>
@@ -414,7 +418,18 @@ export const AdminPanel: React.FC = () => {
             </div>
 
             {/* Whitelist Alert / Instruction if not yet connected */}
-            {!dbStatus?.connected ? (
+            {!dbStatus?.connected && !dbStatus?.isAtlas ? (
+              <div className="p-4 bg-amber-50 rounded-2xl border border-amber-200/90 text-xs text-amber-950 flex items-start gap-2.5">
+                <AlertTriangle className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
+                <div className="space-y-1">
+                  <h4 className="font-bold text-sm text-amber-900">Local MongoDB Not Reachable</h4>
+                  <p className="leading-relaxed">
+                    Start MongoDB on <code className="bg-white px-1 py-0.5 rounded font-mono">{dbStatus?.cluster || 'localhost:27017'}</code> (or run <code className="bg-white px-1 py-0.5 rounded font-mono">docker compose up</code>), then click "Test Connection / Reconnect". To use Atlas, set <code className="bg-white px-1 py-0.5 rounded font-mono">MONGODB_URI</code> in <code className="bg-white px-1 py-0.5 rounded font-mono">.env</code>.
+                  </p>
+                  {dbStatus?.error && <p className="text-[11px] text-amber-800 font-mono break-all">{dbStatus.error}</p>}
+                </div>
+              </div>
+            ) : !dbStatus?.connected ? (
               <div className="p-4 bg-amber-50 rounded-2xl border border-amber-200/90 text-xs text-amber-950 space-y-3">
                 <div className="flex items-start gap-2.5">
                   <AlertTriangle className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
@@ -443,10 +458,10 @@ export const AdminPanel: React.FC = () => {
                       Click <strong>Add IP Address</strong>, then select <strong>Allow Access from Anywhere</strong> (<code className="bg-slate-100 px-1 py-0.5 rounded font-mono text-purple-700">0.0.0.0/0</code>) or add this server's outbound IP:
                       <div className="mt-1 flex items-center gap-2">
                         <code className="bg-slate-100 px-2 py-1 rounded-lg font-mono font-bold text-slate-900">
-                          {dbStatus?.outboundIp || '34.34.226.215'}
+                          {dbStatus?.outboundIp || 'unknown'}
                         </code>
                         <button
-                          onClick={() => handleCopyIp(dbStatus?.outboundIp || '34.34.226.215')}
+                          onClick={() => handleCopyIp(dbStatus?.outboundIp || '')}
                           className="px-2 py-1 bg-amber-200 hover:bg-amber-300 text-amber-950 rounded-md font-bold text-[10px] flex items-center gap-1"
                         >
                           {isCopiedIp ? <Check className="w-3 h-3 text-emerald-700" /> : <Copy className="w-3 h-3" />}
@@ -469,10 +484,10 @@ export const AdminPanel: React.FC = () => {
                 <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0" />
                 <div>
                   <h4 className="font-bold text-sm text-emerald-900">
-                    MongoDB Atlas Connected Successfully
+                    {dbStatus?.isAtlas ? 'MongoDB Atlas' : 'Local MongoDB'} Connected Successfully
                   </h4>
                   <p className="text-[11px] text-emerald-800">
-                    All user accounts, pregnancy weekly logs, multi-child profiles, medical reports, and reminders are synchronized directly to MongoDB Atlas.
+                    All user accounts, pregnancy weekly logs, multi-child profiles, medical reports, and reminders are synchronized to {dbStatus?.isAtlas ? 'MongoDB Atlas' : 'the local MongoDB database'}.
                   </p>
                 </div>
               </div>
@@ -525,10 +540,12 @@ export const AdminPanel: React.FC = () => {
             <div className="p-4 rounded-2xl bg-slate-900 text-slate-100 font-mono text-xs space-y-2">
               <div className="flex items-center justify-between text-slate-400 text-[11px]">
                 <span>Configured Connection URI</span>
-                <span className="text-emerald-400 font-bold">mongodb+srv protocol</span>
+                <span className="text-emerald-400 font-bold">
+                  {dbStatus?.redactedUri?.startsWith('mongodb+srv://') ? 'mongodb+srv protocol' : 'mongodb protocol'}
+                </span>
               </div>
               <div className="p-2.5 bg-slate-950 rounded-xl border border-slate-800 break-all select-all text-[11px] text-slate-300">
-                mongodb+srv://mishra.raghav0129_db_user:••••••••@cluster0.bnvanfy.mongodb.net/mumora_db?retryWrites=true&amp;w=majority
+                {dbStatus?.redactedUri || '—'}
               </div>
             </div>
           </div>
